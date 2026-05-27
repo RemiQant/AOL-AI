@@ -18,7 +18,7 @@ def prepare_prophet_dataframe(
     # 1. Convert historical price data
     df_prices = pd.DataFrame(historical_prices)
     if df_prices.empty:
-        raise ValueError("Not enough historical data to map dates.")
+        return pd.DataFrame(), pd.DataFrame()
         
     df_prices = df_prices[['date', 'median_price']]
     df_prices['date'] = pd.to_datetime(df_prices['date'])
