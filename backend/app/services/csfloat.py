@@ -11,18 +11,32 @@ class CSFloatService:
         """
         Fetches historical price and volume data for a specific CS2 item from CSFloat.
         """
-        # Note: Actual CSFloat endpoint for history might be different, 
-        # using a placeholder structure as per standard usage.
         encoded_name = urllib.parse.quote(hash_name)
-        url = f"{cls.BASE_URL}/history/{encoded_name}"
+        url = f"{cls.BASE_URL}/history/{encoded_name}/graph"
         
-        headers = {"Authorization": f"{settings.CSFLOAT_API_KEY}"}
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers)
-            response.raise_for_status()
-            # Returns data structured like [{date: '...', avg_price: ..., volume: ...}, ...]
-            return response.json()
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                data = response.json()
+                
+                history = []
+                for day_data in data:
+                    # CSFloat avg_price is in cents (e.g., 3500.1 for $35.00)
+                    price_usd = round(day_data.get("avg_price", 0) / 100.0, 2)
+                    # Extract just the YYYY-MM-DD from '2026-05-26T00:00:00Z'
+                    date_str = day_data.get("day", "").split("T")[0]
+                    
+                    history.append({
+                        "date": date_str,
+                        "median_price": price_usd,
+                        "volume": day_data.get("count", 0)
+                    })
+                return history
+        except httpx.HTTPStatusError as e:
+            # Added a basic fallback or exception surface
+            print(f"Error fetching data from CSFloat for {hash_name}: {e}")
+            return []
 
     @classmethod
     async def get_bluechip_items(cls, min_daily_volume: int = 50) -> List[str]:
@@ -43,5 +57,14 @@ class CSFloatService:
             "AK-47 | Redline (Field-Tested)",
             "AWP | Asiimov (Field-Tested)",
             "M4A1-S | Printstream (Field-Tested)",
-            "Karambit | Doppler (Factory New)"
+            "Karambit | Doppler (Factory New)",
+            # Additional popular trending liquid skins:
+            "AK-47 | Slate (Field-Tested)",
+            "AWP | Atheris (Field-Tested)",
+            "Desert Eagle | Printstream (Field-Tested)",
+            "M4A4 | In Living Color (Field-Tested)",
+            "USP-S | Ticket to Hell (Field-Tested)",
+            "Glock-18 | Water Elemental (Field-Tested)",
+            "MAC-10 | Neon Rider (Factory New)",
+            "M4A1-S | Decimator (Field-Tested)"
         ]
