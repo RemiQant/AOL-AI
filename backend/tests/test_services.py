@@ -7,7 +7,6 @@ from app.services.csfloat import CSFloatService
 async def main():
     print("=== Testing Core Configuration ===")
     print(f"Loaded Supabase URL: {settings.SUPABASE_URL[:15]}...")
-    print(f"Loaded Env Webhook Secret: {bool(settings.GITHUB_WEBHOOK_SECRET)}")
     print("")
 
     print("=== Testing Supabase Connection ===")
