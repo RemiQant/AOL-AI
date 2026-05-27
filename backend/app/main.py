@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.routers import skins, webhooks
+from app.api.routers import skins
 
 app = FastAPI(
     title="CS2 Bluechip Price Predictor API",
@@ -20,7 +20,6 @@ app.add_middleware(
 
 # Register Endpoints
 app.include_router(skins.router, prefix="/api/v1/skins", tags=["Skins Dashboard"])
-app.include_router(webhooks.router, prefix="/api/v1/webhooks", tags=["GitHub Webhooks"])
 
 @app.get("/")
 def health_check():
