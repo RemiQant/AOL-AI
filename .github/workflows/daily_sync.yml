@@ -19,6 +19,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          CSFLOAT_API_KEY: ${{ secrets.CSFLOAT_API_KEY }}
         run: |
           echo "Starting Native execution of Daily ML Pipeline Sync..."
           cd backend
