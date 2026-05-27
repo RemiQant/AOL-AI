@@ -14,7 +14,7 @@ async def run_pipeline_test():
     logger.info("Starting ML Pipeline Integration Test...")
 
     # 1. Clean up & Insert a Mock Item
-    mock_hash_name = "AK-47 | AI Test (Factory New)"
+    mock_hash_name = "AK-47 | Redline (Field-Tested)"
     
     # Delete if exists to prevent unique constraint errors
     supabase.table("items").delete().eq("hash_name", mock_hash_name).execute()
