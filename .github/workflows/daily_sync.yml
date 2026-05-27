@@ -1,0 +1,26 @@
+name: Daily ML Pipeline Sync
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Runs every day at midnight UTC
+  workflow_dispatch: # Allows you to manually trigger it from the GitHub website
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run Daily ML Pipeline
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          echo "Starting Native execution of Daily ML Pipeline Sync..."
+          cd backend
+          uv run python run_pipeline.py
+          echo "Execution completed."
