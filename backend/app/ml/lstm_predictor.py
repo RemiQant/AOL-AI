@@ -172,7 +172,7 @@ class CS2LSTMPredictor:
             'yhat_upper': forecasts + 1.96 * forecast_std
         })
         
-        df_forecast['yhat_lower'] = df_forecast['yhat_lower'].clip(lower=0.01)
+        df_forecast['yhat_lower'] = df_forecast['yhat_lower'].clip(lower=0.01).round(2)
         
         logger.info("LSTM forecast completed successfully.")
         

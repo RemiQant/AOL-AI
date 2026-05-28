@@ -127,16 +127,28 @@ async def run_daily_pipeline():
             
             # Store LSTM Predictions
             if df_lstm_forecast is not None:
-                for _, row in df_lstm_forecast.iterrows():
-                    try:
-                        supabase.table("ai_predictions").insert({
+                try:
+                    # 1. Prepare all records into a single list
+                    prediction_records = [
+                        {
                             "item_id": item_id,
                             "target_date": str(row['ds'].date()),
                             "predicted_price": float(row['yhat']),
                             "model_used": "lstm_v1"
-                        }).execute()
-                    except Exception as e:
-                        logger.error(f"Failed to save LSTM prediction for {hash_name}: {e}")
+                        }
+                        for _, row in df_lstm_forecast.iterrows()
+                    ]
+                    
+                    # 2. Perform one bulk network request
+                    if prediction_records:
+                        supabase.table("ai_predictions").upsert(
+                            prediction_records, 
+                            on_conflict="item_id, target_date"
+                        ).execute()
+                        
+                except Exception as e:
+                    # Note: If a bulk operation fails, it fails for the whole batch
+                    logger.error(f"Failed to save bulk LSTM predictions for {hash_name}: {e}")
                     
         logger.info("Daily ML pipeline executed successfully.")
         
