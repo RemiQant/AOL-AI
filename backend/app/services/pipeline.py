@@ -76,7 +76,11 @@ async def run_daily_pipeline():
                 if prices_to_insert:
                     try:
                         # Batch insert ignoring duplicates
-                        supabase.table("historical_prices").upsert(prices_to_insert, ignore_duplicates=True).execute()
+                        supabase.table("historical_prices").upsert(
+                            prices_to_insert, 
+                            on_conflict="item_id, date", 
+                            ignore_duplicates=True
+                        ).execute()
                     except Exception as e:
                         logger.error(f"Failed to bulk insert prices for {hash_name}: {e}")
             except Exception as e:
@@ -113,42 +117,57 @@ async def run_daily_pipeline():
                 logger.error(f"LSTM training failed for {hash_name}: {e}. Skipping LSTM forecast...")
                 df_lstm_forecast = None
             
-            # Store Prophet Predictions
-            for _, row in df_prophet_forecast.iterrows():
-                try:
-                    supabase.table("ai_predictions").insert({
+            # 1. Bulk Upsert Prophet Predictions
+            if df_prophet_forecast is not None:
+                prophet_records = [
+                    {
                         "item_id": item_id,
                         "target_date": str(row['target_date'].date()),
                         "predicted_price": float(row['predicted_price']),
                         "model_used": "prophet_v1"
-                    }).execute()
-                except Exception as e:
-                    logger.error(f"Failed to save Prophet prediction for {hash_name}: {e}")
-            
-            # Store LSTM Predictions
+                    }
+                    for _, row in df_prophet_forecast.iterrows()
+                ]
+                if prophet_records:
+                    try:
+                        # FIX: Added model_used to on_conflict to prevent overwriting LSTM
+                        supabase.table("ai_predictions").upsert(
+                            prophet_records, 
+                            on_conflict="item_id, target_date, model_used"
+                        ).execute()
+                    except Exception as e:
+                        logger.error(f"Failed to bulk save Prophet predictions for {hash_name}: {e}")
+
+            # 2. Bulk Upsert LSTM Predictions
             if df_lstm_forecast is not None:
                 try:
-                    # 1. Prepare all records into a single list
-                    prediction_records = [
-                        {
-                            "item_id": item_id,
-                            "target_date": str(row['ds'].date()),
-                            "predicted_price": float(row['yhat']),
-                            "model_used": "lstm_v1"
-                        }
-                        for _, row in df_lstm_forecast.iterrows()
-                    ]
-                    
-                    # 2. Perform one bulk network request
-                    if prediction_records:
-                        supabase.table("ai_predictions").upsert(
-                            prediction_records, 
-                            on_conflict="item_id, target_date"
-                        ).execute()
+                    # Safely build the records
+                    lstm_records = []
+                    for _, row in df_lstm_forecast.iterrows():
                         
+                        # Handle potential column naming differences safely
+                        date_val = row.get('ds', row.get('target_date'))
+                        price_val = row.get('yhat', row.get('predicted_price'))
+                        
+                        # Handle potential datetime vs string differences
+                        clean_date = str(date_val.date()) if hasattr(date_val, 'date') else str(date_val)
+                        
+                        lstm_records.append({
+                            "item_id": item_id,
+                            "target_date": clean_date,
+                            "predicted_price": float(price_val),
+                            "model_used": "lstm_v1"
+                        })
+
+                    # If successful, execute the bulk upsert
+                    if lstm_records:
+                        supabase.table("ai_predictions").upsert(
+                            lstm_records, 
+                            on_conflict="item_id, target_date, model_used"
+                        ).execute()
+
                 except Exception as e:
-                    # Note: If a bulk operation fails, it fails for the whole batch
-                    logger.error(f"Failed to save bulk LSTM predictions for {hash_name}: {e}")
+                    logger.error(f"Failed to prepare or save LSTM predictions for {hash_name}: {e}")
                     
         logger.info("Daily ML pipeline executed successfully.")
         
