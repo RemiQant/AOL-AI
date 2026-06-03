@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, use } from 'react'
+import { useState, useEffect, useMemo, use } from 'react'
 import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
@@ -10,8 +10,8 @@ import { AtmosphericOrb } from '@/components/ui/AtmosphericOrb'
 import { PricePredictorChart } from '@/components/cs2/PricePredictorChart'
 import { AiAnalysisCard } from '@/components/cs2/AiAnalysisCard'
 import { useMotion } from '@/components/providers/MotionProvider'
-import { getSkinById } from '@/lib/api'
-import type { SkinPricePoint } from '@/lib/cs2-types'
+import { getSkinById, fetchSkinById } from '@/lib/api'
+import type { SkinOption, SkinPricePoint } from '@/lib/cs2-types'
 
 type Timeframe = '1W' | '1M' | '3M'
 
@@ -19,7 +19,7 @@ const TIMEFRAME_DAYS: Record<Timeframe, number> = { '1W': 7, '1M': 30, '3M': 90 
 
 function filterByTimeframe(data: SkinPricePoint[], tf: Timeframe): SkinPricePoint[] {
   const days   = TIMEFRAME_DAYS[tf]
-  const cutoff = new Date('2026-05-30')
+  const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - days + 1)
   const cutStr = cutoff.toISOString().split('T')[0]
   return data.filter((d) => d.date >= cutStr)
@@ -56,7 +56,15 @@ export default function SkinDetailPage({ params }: Props) {
   const { shouldAnimate } = useMotion()
   const [timeframe, setTimeframe] = useState<Timeframe>('3M')
 
-  const skin      = getSkinById(id)
+  const decodedId = decodeURIComponent(id)
+  const [skin, setSkin] = useState<SkinOption | undefined>(
+    getSkinById(id) ?? getSkinById(decodedId)
+  )
+
+  useEffect(() => {
+    fetchSkinById(decodedId).then(setSkin).catch(() => {})
+  }, [decodedId])
+
   const chartData = useMemo(
     () => skin ? filterByTimeframe(skin.priceData, timeframe) : [],
     [skin, timeframe],
@@ -89,7 +97,6 @@ export default function SkinDetailPage({ params }: Props) {
 
       <div className="relative z-10 max-w-7xl mx-auto">
 
-        {/* Back nav */}
         <Link
           href="/predictor"
           className="inline-flex items-center gap-1 text-label-md text-on-surface-variant hover:text-on-surface transition-colors focus-ring rounded mb-lg"
@@ -132,14 +139,14 @@ export default function SkinDetailPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Main content: chart + AI analysis */}
+        {/* Main content */}
         <motion.div
           variants={shouldAnimate ? containerVariants : undefined}
           initial="hidden"
           animate="visible"
           className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-md items-start"
         >
-          {/* ── LEFT: Price chart ───────────────────────────────── */}
+          {/* Chart */}
           <motion.div variants={shouldAnimate ? itemVariants : undefined} className="flex flex-col gap-md">
             <GlassPanel className="p-lg">
               <div className="flex items-center justify-between mb-md flex-wrap gap-2">
@@ -149,7 +156,6 @@ export default function SkinDetailPage({ params }: Props) {
                     Green = historical · Purple dashed = AI prediction
                   </p>
                 </div>
-                {/* Timeframe selector */}
                 <div
                   role="radiogroup"
                   aria-label="Chart timeframe"
@@ -173,17 +179,15 @@ export default function SkinDetailPage({ params }: Props) {
                   ))}
                 </div>
               </div>
-
               <PricePredictorChart data={chartData} height={380} />
             </GlassPanel>
 
-            {/* Quick stats below chart */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-md">
               {[
-                { label: 'Current Price',   value: formatPrice(skin.currentPrice),               color: 'text-on-surface'  },
-                { label: '7-Day Target',    value: formatPrice(lastPrediction),                   color: 'text-secondary'   },
-                { label: 'Expected Return', value: `${predictionDelta >= 0 ? '+' : ''}${predictionDelta.toFixed(2)}%`, color: predictionDelta >= 0 ? 'text-primary' : 'text-red-400' },
-                { label: 'Forecast Window', value: '7 days',                                      color: 'text-on-surface'  },
+                { label: 'Current Price',   value: formatPrice(skin.currentPrice),                                              color: 'text-on-surface' },
+                { label: '7-Day Target',    value: formatPrice(lastPrediction),                                                  color: 'text-secondary'  },
+                { label: 'Expected Return', value: `${predictionDelta >= 0 ? '+' : ''}${predictionDelta.toFixed(2)}%`,          color: predictionDelta >= 0 ? 'text-primary' : 'text-red-400' },
+                { label: 'Forecast Window', value: '7 days',                                                                     color: 'text-on-surface' },
               ].map(({ label, value, color }) => (
                 <GlassPanel key={label} className="p-md text-center">
                   <p className="text-label-sm text-on-surface-variant mb-1">{label}</p>
@@ -193,7 +197,7 @@ export default function SkinDetailPage({ params }: Props) {
             </div>
           </motion.div>
 
-          {/* ── RIGHT: AI Analysis Card ─────────────────────────── */}
+          {/* AI Analysis */}
           <motion.div
             variants={shouldAnimate ? itemVariants : undefined}
             className="lg:sticky lg:top-[24px]"

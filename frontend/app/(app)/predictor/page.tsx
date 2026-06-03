@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Brain, TrendingUp, TrendingDown, Search, X, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
@@ -9,7 +9,7 @@ import { GlassPanel } from '@/components/ui/GlassPanel'
 import { AtmosphericOrb } from '@/components/ui/AtmosphericOrb'
 import { TextGradient } from '@/components/ui/TextGradient'
 import { useMotion } from '@/components/providers/MotionProvider'
-import { getSkins } from '@/lib/api'
+import { getSkins, fetchSkins } from '@/lib/api'
 import type { SkinOption } from '@/lib/cs2-types'
 
 type Category = 'all' | SkinOption['category']
@@ -37,12 +37,11 @@ function SkinCard({ skin }: { skin: SkinOption }) {
   const isUp = skin.changePct24h >= 0
   return (
     <Link
-      href={`/predictor/${skin.id}`}
+      href={`/predictor/${encodeURIComponent(skin.id)}`}
       aria-label={`View AI forecast for ${skin.name} ${skin.wear}`}
       className="group block focus-ring rounded-lg"
     >
       <GlassPanel className="p-lg h-full flex flex-col gap-md transition-all duration-200 group-hover:border-white/20 group-hover:shadow-glow-secondary group-hover:-translate-y-0.5">
-        {/* Top row: category + change */}
         <div className="flex items-center justify-between">
           <span className={clsx(
             'text-label-sm font-medium px-2 py-0.5 rounded-full border capitalize',
@@ -62,7 +61,6 @@ function SkinCard({ skin }: { skin: SkinOption }) {
           </span>
         </div>
 
-        {/* Skin name */}
         <div className="flex-1">
           <p className="text-body-md font-bold text-on-surface leading-snug group-hover:text-primary transition-colors">
             {skin.name}
@@ -70,7 +68,6 @@ function SkinCard({ skin }: { skin: SkinOption }) {
           <p className="text-label-sm text-on-surface-variant mt-0.5">{skin.wear}</p>
         </div>
 
-        {/* Price */}
         <div className="flex items-end justify-between">
           <p className="text-title-lg font-black text-on-surface tabular-nums">
             {skin.currentPrice >= 1000
@@ -83,7 +80,6 @@ function SkinCard({ skin }: { skin: SkinOption }) {
           </span>
         </div>
 
-        {/* Bottom accent line */}
         <div
           aria-hidden="true"
           className={clsx(
@@ -98,10 +94,14 @@ function SkinCard({ skin }: { skin: SkinOption }) {
 }
 
 export default function PredictorPage() {
-  const { shouldAnimate }               = useMotion()
-  const skins                           = getSkins()
-  const [searchQuery, setSearchQuery]   = useState('')
-  const [category, setCategory]         = useState<Category>('all')
+  const { shouldAnimate }             = useMotion()
+  const [skins, setSkins]             = useState<SkinOption[]>(getSkins())
+  const [searchQuery, setSearchQuery] = useState('')
+  const [category, setCategory]       = useState<Category>('all')
+
+  useEffect(() => {
+    fetchSkins().then(setSkins).catch(() => {})
+  }, [])
 
   const counts = useMemo<Record<Category, number>>(() => ({
     all:    skins.length,
@@ -147,7 +147,6 @@ export default function PredictorPage() {
 
         {/* Search + filters */}
         <div className="flex flex-col sm:flex-row gap-md mb-xl">
-          {/* Search */}
           <div className="relative flex-1 max-w-md">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant pointer-events-none"
@@ -172,7 +171,6 @@ export default function PredictorPage() {
             )}
           </div>
 
-          {/* Category tabs */}
           <div
             role="radiogroup"
             aria-label="Filter by weapon category"
@@ -198,13 +196,11 @@ export default function PredictorPage() {
           </div>
         </div>
 
-        {/* Results count */}
         <p className="text-label-md text-on-surface-variant mb-md">
           {filtered.length} skin{filtered.length !== 1 ? 's' : ''}
           {searchQuery ? ` for "${searchQuery}"` : ''}
         </p>
 
-        {/* Skin grid */}
         {filtered.length > 0 ? (
           <motion.div
             key={`${category}-${searchQuery}`}

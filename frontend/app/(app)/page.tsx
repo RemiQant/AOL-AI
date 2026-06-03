@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowRight, Brain } from 'lucide-react'
@@ -11,7 +12,11 @@ import { PlayerCountWidget } from '@/components/cs2/PlayerCountWidget'
 import { EventTimeline } from '@/components/cs2/EventTimeline'
 import { KeywordTracker } from '@/components/cs2/KeywordTracker'
 import { useMotion } from '@/components/providers/MotionProvider'
-import { getSkins, getMarketEvents, getNewsKeywords, getPlayerCount } from '@/lib/api'
+import {
+  getSkins, getPlayerCount, getMarketEvents, getNewsKeywords,
+  fetchSkins, fetchPlayerCount, fetchMarketEvents, fetchNewsKeywords,
+} from '@/lib/api'
+import type { SkinOption, PlayerCountData, MarketEvent, NewsKeyword } from '@/lib/cs2-types'
 
 const containerVariants = {
   hidden: {},
@@ -22,16 +27,35 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' as const } },
 }
 
-const defaultSkin = getSkins()[0]
-
 const marketStats = [
-  { label: 'Steam Market Vol.',  value: '$2.41M',  change: '+8.3%',  up: true  },
-  { label: 'Active Listings',    value: '142,830', change: '+1.2%',  up: true  },
+  { label: 'Steam Market Vol.',  value: '$2.41M',  change: '+8.3%',       up: true  },
+  { label: 'Active Listings',    value: '142,830', change: '+1.2%',       up: true  },
   { label: 'Market Index (7d)',  value: '+3.2%',   change: 'vs prev week', up: true  },
 ]
 
 export default function DashboardPage() {
   const { shouldAnimate } = useMotion()
+
+  const [skins,       setSkins]       = useState<SkinOption[]>(getSkins())
+  const [playerCount, setPlayerCount] = useState<PlayerCountData>(getPlayerCount())
+  const [events,      setEvents]      = useState<MarketEvent[]>(getMarketEvents())
+  const [keywords,    setKeywords]    = useState<NewsKeyword[]>(getNewsKeywords())
+
+  useEffect(() => {
+    Promise.all([
+      fetchSkins(),
+      fetchPlayerCount(),
+      fetchMarketEvents(),
+      fetchNewsKeywords(),
+    ]).then(([s, p, e, k]) => {
+      setSkins(s)
+      setPlayerCount(p)
+      setEvents(e)
+      setKeywords(k)
+    }).catch(() => {/* silently keep mock data */})
+  }, [])
+
+  const defaultSkin = skins[0]
 
   return (
     <motion.div
@@ -70,12 +94,12 @@ export default function DashboardPage() {
           animate="visible"
           className="flex flex-col gap-md"
         >
-          {/* Row 1: Player Count + Stats column  |  Price Predictor Chart */}
+          {/* Row 1: Player Count + Stats  |  Price Predictor Chart */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
 
-            {/* Left column: player count + market stats */}
+            {/* Left: player count + market stats */}
             <motion.div variants={shouldAnimate ? itemVariants : undefined} className="flex flex-col gap-md">
-              <PlayerCountWidget data={getPlayerCount()} />
+              <PlayerCountWidget data={playerCount} />
 
               <GlassPanel className="p-md">
                 <p className="text-label-md text-on-surface-variant uppercase tracking-widest mb-md">
@@ -99,36 +123,40 @@ export default function DashboardPage() {
               </GlassPanel>
             </motion.div>
 
-            {/* Right column: price predictor chart */}
+            {/* Right: price predictor chart */}
             <motion.div variants={shouldAnimate ? itemVariants : undefined} className="md:col-span-2">
               <GlassPanel className="p-lg h-full flex flex-col">
-                <div className="flex items-start justify-between mb-md flex-wrap gap-2">
-                  <div>
-                    <h2 className="text-title-md font-semibold text-on-surface">
-                      {defaultSkin.name}
-                      <span className="ml-2 text-label-md text-on-surface-variant font-normal">
-                        {defaultSkin.wear}
-                      </span>
-                    </h2>
-                    <div className="flex items-center gap-md mt-1">
-                      <span className="text-headline-lg font-bold text-on-surface tabular-nums">
-                        ${defaultSkin.currentPrice.toFixed(2)}
-                      </span>
-                      <span className={defaultSkin.changePct24h >= 0 ? 'text-primary text-label-md font-medium' : 'text-red-400 text-label-md font-medium'}>
-                        {defaultSkin.changePct24h >= 0 ? '+' : ''}{defaultSkin.changePct24h}% 24h
-                      </span>
+                {defaultSkin && (
+                  <>
+                    <div className="flex items-start justify-between mb-md flex-wrap gap-2">
+                      <div>
+                        <h2 className="text-title-md font-semibold text-on-surface">
+                          {defaultSkin.name}
+                          <span className="ml-2 text-label-md text-on-surface-variant font-normal">
+                            {defaultSkin.wear}
+                          </span>
+                        </h2>
+                        <div className="flex items-center gap-md mt-1">
+                          <span className="text-headline-lg font-bold text-on-surface tabular-nums">
+                            ${defaultSkin.currentPrice.toFixed(2)}
+                          </span>
+                          <span className={defaultSkin.changePct24h >= 0 ? 'text-primary text-label-md font-medium' : 'text-red-400 text-label-md font-medium'}>
+                            {defaultSkin.changePct24h >= 0 ? '+' : ''}{defaultSkin.changePct24h}% 24h
+                          </span>
+                        </div>
+                      </div>
+                      <Link
+                        href="/predictor"
+                        className="flex items-center gap-1 text-label-md text-secondary hover:text-on-surface transition-colors focus-ring rounded px-2 py-1"
+                      >
+                        Full Predictor <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                      </Link>
                     </div>
-                  </div>
-                  <Link
-                    href="/predictor"
-                    className="flex items-center gap-1 text-label-md text-secondary hover:text-on-surface transition-colors focus-ring rounded px-2 py-1"
-                  >
-                    Full Predictor <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-                  </Link>
-                </div>
-                <div className="flex-1">
-                  <PricePredictorChart data={defaultSkin.priceData} height={260} />
-                </div>
+                    <div className="flex-1">
+                      <PricePredictorChart data={defaultSkin.priceData} height={260} />
+                    </div>
+                  </>
+                )}
               </GlassPanel>
             </motion.div>
           </div>
@@ -149,7 +177,7 @@ export default function DashboardPage() {
                   </Link>
                 </div>
                 <div className="overflow-y-auto" style={{ maxHeight: 420 }}>
-                  <EventTimeline events={getMarketEvents()} limit={4} />
+                  <EventTimeline events={events} limit={4} />
                 </div>
               </GlassPanel>
             </motion.div>
@@ -171,7 +199,7 @@ export default function DashboardPage() {
                     Full View <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
                   </Link>
                 </div>
-                <KeywordTracker keywords={getNewsKeywords()} limit={8} showFilters={false} />
+                <KeywordTracker keywords={keywords} limit={8} showFilters={false} />
               </GlassPanel>
             </motion.div>
           </div>

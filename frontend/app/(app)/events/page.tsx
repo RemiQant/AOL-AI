@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { CalendarClock, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -9,7 +9,7 @@ import { AtmosphericOrb } from '@/components/ui/AtmosphericOrb'
 import { TextGradient } from '@/components/ui/TextGradient'
 import { EventTimeline } from '@/components/cs2/EventTimeline'
 import { useMotion } from '@/components/providers/MotionProvider'
-import { getMarketEvents } from '@/lib/api'
+import { getMarketEvents, fetchMarketEvents } from '@/lib/api'
 import type { MarketEvent } from '@/lib/cs2-types'
 
 type ImpactFilter = 'all' | MarketEvent['impact']
@@ -19,40 +19,6 @@ const FILTERS: { key: ImpactFilter; label: string; icon: React.ElementType }[] =
   { key: 'positive', label: 'Positive',   icon: TrendingUp    },
   { key: 'negative', label: 'Negative',   icon: TrendingDown  },
   { key: 'neutral',  label: 'Neutral',    icon: Minus         },
-]
-
-const ALL_EVENTS    = getMarketEvents()
-const IMPACT_COUNTS = {
-  positive: ALL_EVENTS.filter((e) => e.impact === 'positive').length,
-  negative: ALL_EVENTS.filter((e) => e.impact === 'negative').length,
-  neutral:  ALL_EVENTS.filter((e) => e.impact === 'neutral').length,
-}
-
-const summaryStats = [
-  {
-    label: 'Total Events',
-    value: ALL_EVENTS.length,
-    sub: 'since Oct 2025',
-    color: 'text-on-surface',
-  },
-  {
-    label: 'Positive Impact',
-    value: IMPACT_COUNTS.positive,
-    sub: 'market boosters',
-    color: 'text-primary',
-  },
-  {
-    label: 'Negative Impact',
-    value: IMPACT_COUNTS.negative,
-    sub: 'market shocks',
-    color: 'text-red-400',
-  },
-  {
-    label: 'Neutral Impact',
-    value: IMPACT_COUNTS.neutral,
-    sub: 'market-neutral',
-    color: 'text-on-surface-variant',
-  },
 ]
 
 const containerVariants = {
@@ -65,12 +31,28 @@ const itemVariants = {
 }
 
 export default function EventsPage() {
-  const { shouldAnimate }             = useMotion()
-  const [filter, setFilter]           = useState<ImpactFilter>('all')
+  const { shouldAnimate }   = useMotion()
+  const [filter, setFilter] = useState<ImpactFilter>('all')
+  const [events, setEvents] = useState<MarketEvent[]>(getMarketEvents())
 
-  const filtered = filter === 'all'
-    ? ALL_EVENTS
-    : ALL_EVENTS.filter((e) => e.impact === filter)
+  useEffect(() => {
+    fetchMarketEvents().then(setEvents).catch(() => {})
+  }, [])
+
+  const impactCounts = {
+    positive: events.filter((e) => e.impact === 'positive').length,
+    negative: events.filter((e) => e.impact === 'negative').length,
+    neutral:  events.filter((e) => e.impact === 'neutral').length,
+  }
+
+  const summaryStats = [
+    { label: 'Total Events',    value: events.length,          sub: 'since Oct 2025', color: 'text-on-surface' },
+    { label: 'Positive Impact', value: impactCounts.positive,  sub: 'market boosters', color: 'text-primary' },
+    { label: 'Negative Impact', value: impactCounts.negative,  sub: 'market shocks',   color: 'text-red-400' },
+    { label: 'Neutral Impact',  value: impactCounts.neutral,   sub: 'market-neutral',  color: 'text-on-surface-variant' },
+  ]
+
+  const filtered = filter === 'all' ? events : events.filter((e) => e.impact === filter)
 
   return (
     <motion.div
@@ -123,11 +105,7 @@ export default function EventsPage() {
 
           {/* Filter buttons */}
           <motion.div variants={shouldAnimate ? itemVariants : undefined}>
-            <div
-              role="radiogroup"
-              aria-label="Filter events by impact"
-              className="flex flex-wrap gap-2"
-            >
+            <div role="radiogroup" aria-label="Filter events by impact" className="flex flex-wrap gap-2">
               {FILTERS.map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
@@ -148,7 +126,7 @@ export default function EventsPage() {
                   {label}
                   {key !== 'all' && (
                     <span className="ml-1 text-label-sm opacity-70">
-                      ({IMPACT_COUNTS[key as keyof typeof IMPACT_COUNTS] ?? 0})
+                      ({impactCounts[key as keyof typeof impactCounts] ?? 0})
                     </span>
                   )}
                 </button>
