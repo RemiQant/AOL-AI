@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: str
     SUPABASE_KEY: str
     CSFLOAT_API_KEY: str
+    GITHUB_WEBHOOK_SECRET: str | None = None  # Optional since we removed webhooks
     
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
