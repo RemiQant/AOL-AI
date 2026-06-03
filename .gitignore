@@ -43,3 +43,19 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Node.js / Next.js
+node_modules/
+.next/
+out/
+.pnpm-store/
+
+# Next.js env locals
+frontend/.env.local
+frontend/.env.*.local
+
+# Temp clones
+_tmp_aol_clone/
+
+# Claude Code internal settings (may contain credentials)
+.claude/
