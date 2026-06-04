@@ -7,8 +7,9 @@ ENV_FILE = os.getenv("ENV_FILE", ".env/.env.development")
 class Settings(BaseSettings):
     SUPABASE_URL: str
     SUPABASE_KEY: str
-    CSFLOAT_API_KEY: str | None = None  # Reserved for future authenticated endpoints
+    CSFLOAT_API_KEY: str | None = None
     GITHUB_WEBHOOK_SECRET: str | None = None
+    GEMINI_API_KEY: str | None = None
     
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
