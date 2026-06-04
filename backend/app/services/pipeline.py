@@ -5,6 +5,7 @@ from app.services.steam import SteamWebAPI, SteamNewsAPI
 from app.services.csfloat import CSFloatService
 from app.ml.data_prep import prepare_prophet_dataframe
 from app.ml.predictor import CS2Predictor
+from app.ml.lstm_predictor import CS2LSTMPredictor
 from datetime import datetime
 
 logger = logging.getLogger("cs2-predictor.pipeline")
@@ -75,19 +76,23 @@ async def run_daily_pipeline():
                 if prices_to_insert:
                     try:
                         # Batch insert ignoring duplicates
-                        supabase.table("historical_prices").upsert(prices_to_insert, ignore_duplicates=True).execute()
+                        supabase.table("historical_prices").upsert(
+                            prices_to_insert, 
+                            on_conflict="item_id, date", 
+                            ignore_duplicates=True
+                        ).execute()
                     except Exception as e:
                         logger.error(f"Failed to bulk insert prices for {hash_name}: {e}")
             except Exception as e:
                 logger.error(f"Failed to fetch CSFloat history for {hash_name}: {e}")
                 continue
 
-            # Load 365 Days of Data for Prophet
+            # Load 365 Days of Data for Prophet & LSTM
             hist_req = supabase.table("historical_prices").select("*").eq("item_id", item_id).order("date", desc=True).limit(365).execute()
             players_req = supabase.table("player_counts").select("*").order("date", desc=True).limit(365).execute()
             news_req = supabase.table("game_updates").select("*").order("date", desc=True).limit(365).execute()
             
-            # Run Prophet Predictions
+            # Prepare data for models
             df_train, df_future = prepare_prophet_dataframe(
                 historical_prices=hist_req.data,
                 player_counts=players_req.data,
@@ -97,23 +102,72 @@ async def run_daily_pipeline():
             if df_train.empty:
                 logger.warning(f"Not enough training data for {hash_name}. Skipping...")
                 continue
-                
-            predictor = CS2Predictor()
-            df_forecast = predictor.train_and_forecast(df_train, df_future)
             
-            # Upsert Predictions
-            for _, row in df_forecast.iterrows():
-                try:
-                    # In production we'd do an upsert
-                    supabase.table("ai_predictions").delete().eq("item_id", item_id).eq("target_date", str(row['target_date'].date())).execute()
-                    supabase.table("ai_predictions").insert({
+            # Run Prophet Predictions
+            logger.info(f"Running Prophet forecast for {hash_name}...")
+            prophet_predictor = CS2Predictor()
+            df_prophet_forecast = prophet_predictor.train_and_forecast(df_train, df_future)
+            
+            # Run LSTM Predictions
+            logger.info(f"Running LSTM forecast for {hash_name}...")
+            try:
+                lstm_predictor = CS2LSTMPredictor(lookback_window=14, epochs=50, verbose=0)
+                df_lstm_forecast = lstm_predictor.train_and_forecast(df_train, df_future)
+            except Exception as e:
+                logger.error(f"LSTM training failed for {hash_name}: {e}. Skipping LSTM forecast...")
+                df_lstm_forecast = None
+            
+            # 1. Bulk Upsert Prophet Predictions
+            if df_prophet_forecast is not None:
+                prophet_records = [
+                    {
                         "item_id": item_id,
                         "target_date": str(row['target_date'].date()),
                         "predicted_price": float(row['predicted_price']),
                         "model_used": "prophet_v1"
-                    }).execute()
+                    }
+                    for _, row in df_prophet_forecast.iterrows()
+                ]
+                if prophet_records:
+                    try:
+                        # FIX: Added model_used to on_conflict to prevent overwriting LSTM
+                        supabase.table("ai_predictions").upsert(
+                            prophet_records, 
+                            on_conflict="item_id, target_date, model_used"
+                        ).execute()
+                    except Exception as e:
+                        logger.error(f"Failed to bulk save Prophet predictions for {hash_name}: {e}")
+
+            # 2. Bulk Upsert LSTM Predictions
+            if df_lstm_forecast is not None:
+                try:
+                    # Safely build the records
+                    lstm_records = []
+                    for _, row in df_lstm_forecast.iterrows():
+                        
+                        # Handle potential column naming differences safely
+                        date_val = row.get('ds', row.get('target_date'))
+                        price_val = row.get('yhat', row.get('predicted_price'))
+                        
+                        # Handle potential datetime vs string differences
+                        clean_date = str(date_val.date()) if hasattr(date_val, 'date') else str(date_val)
+                        
+                        lstm_records.append({
+                            "item_id": item_id,
+                            "target_date": clean_date,
+                            "predicted_price": float(price_val),
+                            "model_used": "lstm_v1"
+                        })
+
+                    # If successful, execute the bulk upsert
+                    if lstm_records:
+                        supabase.table("ai_predictions").upsert(
+                            lstm_records, 
+                            on_conflict="item_id, target_date, model_used"
+                        ).execute()
+
                 except Exception as e:
-                    logger.error(f"Failed to save prediction for {hash_name}: {e}")
+                    logger.error(f"Failed to prepare or save LSTM predictions for {hash_name}: {e}")
                     
         logger.info("Daily ML pipeline executed successfully.")
         
