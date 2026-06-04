@@ -66,11 +66,13 @@ const RISK_COLOR: Record<RiskLevel, string> = {
 
 interface AiAnalysisCardProps {
   skin: SkinOption
-  lastPrediction: number
+  lastPrediction: number   // ensemble average
   predictionDelta: number
+  prophetTarget?: number
+  lstmTarget?: number
 }
 
-export function AiAnalysisCard({ skin, lastPrediction, predictionDelta }: AiAnalysisCardProps) {
+export function AiAnalysisCard({ skin, lastPrediction, predictionDelta, prophetTarget, lstmTarget }: AiAnalysisCardProps) {
   const signal     = getSignal(predictionDelta)
   const risk       = getRisk(skin.category, signal)
   const confidence = getConfidence(skin.category)
@@ -99,7 +101,7 @@ export function AiAnalysisCard({ skin, lastPrediction, predictionDelta }: AiAnal
           </div>
           <div>
             <h3 className="text-title-md font-bold text-on-surface">AI Analysis</h3>
-            <p className="text-label-sm text-on-surface-variant">LSTM · 90-day window</p>
+            <p className="text-label-sm text-on-surface-variant">Prophet + LSTM · 90-day window</p>
           </div>
         </div>
         <span className="text-label-sm text-secondary bg-secondary/10 border border-secondary/20 px-2 py-0.5 rounded-full">
@@ -159,24 +161,43 @@ export function AiAnalysisCard({ skin, lastPrediction, predictionDelta }: AiAnal
       </div>
 
       {/* Forecast metrics row */}
-      <div className="relative grid grid-cols-3 gap-sm pt-md border-t border-white/8">
-        <div>
-          <p className="text-label-sm text-on-surface-variant mb-1">7-Day Target</p>
-          <p className="text-title-md font-bold text-on-surface tabular-nums">
-            ${lastPrediction.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
+      <div className="relative pt-md border-t border-white/8">
+        <div className="grid grid-cols-2 gap-sm mb-sm">
+          <div>
+            <p className="text-label-sm text-on-surface-variant mb-1 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-secondary inline-block" aria-hidden="true" />
+              Prophet Target
+            </p>
+            <p className="text-title-md font-bold text-secondary tabular-nums">
+              ${(prophetTarget ?? lastPrediction).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          </div>
+          <div>
+            <p className="text-label-sm text-on-surface-variant mb-1 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: '#fb923c' }} aria-hidden="true" />
+              LSTM Target
+            </p>
+            <p className="text-title-md font-bold tabular-nums" style={{ color: lstmTarget ? '#fb923c' : undefined }}>
+              {lstmTarget
+                ? `$${lstmTarget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : <span className="text-on-surface-variant text-label-md">Pending</span>
+              }
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-label-sm text-on-surface-variant mb-1">Expected Δ</p>
-          <p className={clsx('text-title-md font-bold tabular-nums', predictionDelta >= 0 ? 'text-primary' : 'text-red-400')}>
-            {predictionDelta >= 0 ? '+' : ''}{predictionDelta.toFixed(2)}%
-          </p>
-        </div>
-        <div>
-          <p className="text-label-sm text-on-surface-variant mb-1">Risk</p>
-          <div className="flex items-center gap-1">
-            <RiskIcon className={clsx('w-4 h-4', RISK_COLOR[risk])} aria-hidden="true" />
-            <p className={clsx('text-title-md font-bold', RISK_COLOR[risk])}>{risk}</p>
+        <div className="grid grid-cols-2 gap-sm">
+          <div>
+            <p className="text-label-sm text-on-surface-variant mb-1">Ensemble Δ</p>
+            <p className={clsx('text-title-md font-bold tabular-nums', predictionDelta >= 0 ? 'text-primary' : 'text-red-400')}>
+              {predictionDelta >= 0 ? '+' : ''}{predictionDelta.toFixed(2)}%
+            </p>
+          </div>
+          <div>
+            <p className="text-label-sm text-on-surface-variant mb-1">Risk</p>
+            <div className="flex items-center gap-1">
+              <RiskIcon className={clsx('w-4 h-4', RISK_COLOR[risk])} aria-hidden="true" />
+              <p className={clsx('text-title-md font-bold', RISK_COLOR[risk])}>{risk}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -213,10 +234,10 @@ export function AiAnalysisCard({ skin, lastPrediction, predictionDelta }: AiAnal
       {/* Model footer */}
       <div className="relative -mt-sm flex flex-wrap gap-x-md gap-y-1">
         {[
-          { label: 'Model', value: 'LSTM 2-layer' },
-          { label: 'MAE',   value: '$0.45'        },
-          { label: 'RMSE',  value: '$0.62'        },
-          { label: 'R²',    value: '0.847'        },
+          { label: 'Models', value: 'Prophet + LSTM' },
+          { label: 'Window', value: '90 days'        },
+          { label: 'Horizon', value: '7 days'        },
+          { label: 'R²',     value: '0.847'          },
         ].map(({ label, value }) => (
           <span key={label} className="text-label-sm text-on-surface-variant/50">
             <span className="text-on-surface-variant/70">{label}:</span> {value}

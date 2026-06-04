@@ -16,7 +16,8 @@ class SkinListItem(BaseModel):
 class SkinPricePoint(BaseModel):
     date: str
     price: Optional[float]
-    predicted: Optional[float]
+    predicted: Optional[float]       # Prophet v1
+    predictedLSTM: Optional[float]   # LSTM v1
     volume: int
 
 

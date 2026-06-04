@@ -81,7 +81,11 @@ export default function SkinDetailPage({ params }: Props) {
     )
   }
 
-  const lastPrediction  = skin.priceData.findLast((d) => d.predicted !== null)?.predicted ?? skin.currentPrice
+  const prophetTarget   = skin.priceData.findLast((d) => d.predicted !== null)?.predicted ?? skin.currentPrice
+  const lstmTarget      = skin.priceData.findLast((d) => (d.predictedLSTM ?? null) !== null)?.predictedLSTM ?? null
+  const lastPrediction  = lstmTarget !== null
+    ? Math.round(((prophetTarget + lstmTarget) / 2) * 100) / 100
+    : prophetTarget
   const predictionDelta = ((lastPrediction - skin.currentPrice) / skin.currentPrice) * 100
   const isUp            = skin.changePct24h >= 0
 
@@ -184,8 +188,8 @@ export default function SkinDetailPage({ params }: Props) {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-md">
               {[
-                { label: 'Current Price',   value: formatPrice(skin.currentPrice),                                              color: 'text-on-surface' },
-                { label: '7-Day Target',    value: formatPrice(lastPrediction),                                                  color: 'text-secondary'  },
+                { label: 'Current Price',    value: formatPrice(skin.currentPrice),  color: 'text-on-surface' },
+                { label: 'Ensemble Target', value: formatPrice(lastPrediction),      color: 'text-secondary'  },
                 { label: 'Expected Return', value: `${predictionDelta >= 0 ? '+' : ''}${predictionDelta.toFixed(2)}%`,          color: predictionDelta >= 0 ? 'text-primary' : 'text-red-400' },
                 { label: 'Forecast Window', value: '7 days',                                                                     color: 'text-on-surface' },
               ].map(({ label, value, color }) => (
@@ -206,6 +210,8 @@ export default function SkinDetailPage({ params }: Props) {
               skin={skin}
               lastPrediction={lastPrediction}
               predictionDelta={predictionDelta}
+              prophetTarget={prophetTarget}
+              lstmTarget={lstmTarget ?? undefined}
             />
           </motion.div>
         </motion.div>

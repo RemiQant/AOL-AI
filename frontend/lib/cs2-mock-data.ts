@@ -37,21 +37,23 @@ const AK_BASE_DATA: SkinPricePoint[] = [
   { date: '2026-05-21', price: 16.60, predicted: null, volume: 345 },
   { date: '2026-05-24', price: 16.45, predicted: null, volume: 289 },
   { date: '2026-05-27', price: 16.80, predicted: null, volume: 334 },
-  { date: '2026-05-30', price: 16.95, predicted: 16.95, volume: 312 },
-  { date: '2026-06-01', price: null,  predicted: 17.10, volume: 0 },
-  { date: '2026-06-02', price: null,  predicted: 17.25, volume: 0 },
-  { date: '2026-06-03', price: null,  predicted: 17.05, volume: 0 },
-  { date: '2026-06-04', price: null,  predicted: 17.40, volume: 0 },
-  { date: '2026-06-05', price: null,  predicted: 17.55, volume: 0 },
-  { date: '2026-06-06', price: null,  predicted: 17.35, volume: 0 },
-  { date: '2026-06-07', price: null,  predicted: 17.65, volume: 0 },
+  { date: '2026-05-30', price: 16.95, predicted: 16.95, predictedLSTM: 16.95, volume: 312 },
+  { date: '2026-06-01', price: null,  predicted: 17.10, predictedLSTM: 17.32, volume: 0 },
+  { date: '2026-06-02', price: null,  predicted: 17.25, predictedLSTM: 17.18, volume: 0 },
+  { date: '2026-06-03', price: null,  predicted: 17.05, predictedLSTM: 17.41, volume: 0 },
+  { date: '2026-06-04', price: null,  predicted: 17.40, predictedLSTM: 17.28, volume: 0 },
+  { date: '2026-06-05', price: null,  predicted: 17.55, predictedLSTM: 17.63, volume: 0 },
+  { date: '2026-06-06', price: null,  predicted: 17.35, predictedLSTM: 17.52, volume: 0 },
+  { date: '2026-06-07', price: null,  predicted: 17.65, predictedLSTM: 17.74, volume: 0 },
 ]
 
 function scaleData(data: SkinPricePoint[], factor: number): SkinPricePoint[] {
   return data.map((d) => ({
     ...d,
-    price:     d.price     !== null ? Math.round(d.price     * factor * 100) / 100 : null,
-    predicted: d.predicted !== null ? Math.round(d.predicted * factor * 100) / 100 : null,
+    price:         d.price         !== null ? Math.round(d.price         * factor * 100) / 100 : null,
+    predicted:     d.predicted     !== null ? Math.round(d.predicted     * factor * 100) / 100 : null,
+    predictedLSTM: d.predictedLSTM !== null && d.predictedLSTM !== undefined
+      ? Math.round(d.predictedLSTM * factor * 100) / 100 : null,
   }))
 }
 

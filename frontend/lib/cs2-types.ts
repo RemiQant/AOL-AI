@@ -1,7 +1,8 @@
 export interface SkinPricePoint {
   date: string
   price: number | null
-  predicted: number | null
+  predicted: number | null      // Prophet v1
+  predictedLSTM?: number | null // LSTM v1
   volume: number
 }
 
