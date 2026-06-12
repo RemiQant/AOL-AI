@@ -1,24 +1,57 @@
-from pydantic import BaseModel, Field
-from typing import List
+from pydantic import BaseModel
+from typing import List, Optional
 import datetime
 
-class HistoricalDataPoint(BaseModel):
-    date: datetime.date
-    price: float = Field(..., alias="median_price")
+
+class SkinListItem(BaseModel):
+    id: str
+    weapon: str
+    name: str
+    wear: str
+    category: str
+    currentPrice: float
+    changePct24h: float
+
+
+class SkinPricePoint(BaseModel):
+    date: str
+    price: Optional[float]
+    predicted: Optional[float]       # Prophet v1
+    predictedLSTM: Optional[float]   # LSTM v1
     volume: int
-    
-    class Config:
-        populate_by_name = True
 
-class AIPredictionPoint(BaseModel):
-    date: datetime.date = Field(..., alias="target_date")
-    predicted_price: float
-    
-    class Config:
-        populate_by_name = True
 
-class SkinResponse(BaseModel):
-    item_name: str
-    currency: str = "USD"
-    historical_data: List[HistoricalDataPoint]
-    ai_predictions: List[AIPredictionPoint]
+class SkinDetailResponse(SkinListItem):
+    priceData: List[SkinPricePoint]
+
+
+class PlayerCountPoint(BaseModel):
+    hour: str
+    count: int
+
+
+class PlayerCountResponse(BaseModel):
+    current: int
+    peak24h: int
+    peak30d: int
+    change24hPct: float
+    trend: str
+    history: List[PlayerCountPoint]
+
+
+class MarketEventItem(BaseModel):
+    id: str
+    date: str
+    title: str
+    description: str
+    impact: str
+    priceChangePct: float
+    source: str
+
+
+class NewsKeywordItem(BaseModel):
+    word: str
+    count: int
+    trend: str
+    sentiment: str
+    category: str
